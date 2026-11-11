@@ -50,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 
 // Guia rapido:
 //
-// // @form X.vue  -> no mixin, this. completa o form e todos os mixins dele.
+// // @form X.vue  -> no mixin, this. completa os forms (até 3) e todos os mixins deles.
 // this.getInfo.  -> campos de getInfo usados no projeto.
 // @origem        -> antes de uma prop/data/computed, aponta de onde vem o objeto:
 //                   /** @origem ../Mixin.js cancelamento.configuracao */

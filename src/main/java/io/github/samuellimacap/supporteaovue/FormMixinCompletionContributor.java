@@ -26,8 +26,8 @@ import org.jetbrains.annotations.NotNull;
 
 // Guia rapido do plugin (WebStorm 2024.2+):
 //
-// 1) // @form X.vue no topo de um mixin exclusivo de um form:
-//      this.  -> membros do mixin, do form e dos mixins dele, com o arquivo ao lado.
+// 1) // @form X.vue no topo de um mixin (até 3 forms, um por linha ou separados por vírgula):
+//      this.  -> membros dos forms e dos mixins deles, com o(s) form(s) de origem ao lado.
 //
 // 2) this.getInfo.  /  this.$store.getters.info.  /  getters.info.
 //      -> campos de getInfo usados no projeto (indice FileBasedIndex).
@@ -81,7 +81,7 @@ public class FormMixinCompletionContributor extends CompletionContributor {
         if (virtualFile == null || !virtualFile.getName().endsWith(".js")) {
             return;
         }
-        if (MixinResolver.formOf(file) == null) {
+        if (MixinResolver.formsOf(file).isEmpty()) {
             return;
         }
         for (MixinResolver.Member member : MixinResolver.membersFor(file)) {
@@ -152,9 +152,20 @@ public class FormMixinCompletionContributor extends CompletionContributor {
         }
     }
 
+    private static String sourceText(MixinResolver.Member member) {
+        if (member.forms().size() <= 1) {
+            return String.join(", ", member.sources());
+        }
+        String forms = String.join(", ", member.forms());
+        List<String> extra = member.sources().stream()
+                .filter(source -> !member.forms().contains(source))
+                .toList();
+        return extra.isEmpty() ? forms : forms + " · " + String.join(", ", extra);
+    }
+
     private static LookupElement lookupForMember(MixinResolver.Member member) {
         LookupElementBuilder builder = LookupElementBuilder.create(member.name())
-                .withTypeText(member.source())
+                .withTypeText(sourceText(member))
                 .withIcon(switch (member.kind()) {
                     case METHOD -> AllIcons.Nodes.Method;
                     case COMPUTED -> AllIcons.Nodes.Property;

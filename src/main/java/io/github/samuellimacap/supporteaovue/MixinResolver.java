@@ -29,10 +29,11 @@ final class MixinResolver {
         PROP, DATA, COMPUTED, METHOD
     }
 
-    record Member(String name, Kind kind, String source) {
+    record Member(String name, Kind kind, List<String> sources, List<String> forms) {
     }
 
-    private static final Pattern FORM = Pattern.compile("^\\s*(?:[/\\*]+\\s*)?@form\\s+([^\\s*]+)");
+    private static final Pattern FORM =
+            Pattern.compile("^\\s*(?:[/\\*]+\\s*)?@form\\s+(.+?)\\s*(?:\\*/)?\\s*$");
     private static final Pattern BLOCK = Pattern.compile("^\\s*([A-Za-z]+)\\s*:\\s*\\{\\s*$");
     private static final Pattern PROPS_ARRAY = Pattern.compile("^\\s*props\\s*:\\s*\\[");
     private static final Pattern QUOTED_VALUE = Pattern.compile("['\"]([\\w$]+)['\"]");
@@ -51,30 +52,37 @@ final class MixinResolver {
 
     private static final String[] EXTENSIONS = {"", ".vue", ".js", "/index.vue", "/index.js"};
 
-    private static final Key<CachedValue<VirtualFile>> FORM_KEY = Key.create("vuehelper.form");
+    private static final Key<CachedValue<List<VirtualFile>>> FORMS_KEY = Key.create("vuehelper.forms");
     private static final Key<CachedValue<List<Member>>> MEMBERS_KEY = Key.create("vuehelper.form.members");
     private static final List<Member> EMPTY = List.of();
+    private static final int MAX_FORMS = 3;
 
     private MixinResolver() {
     }
 
-    static @Nullable VirtualFile formOf(PsiFile mixin) {
-        return CachedValuesManager.getCachedValue(mixin, FORM_KEY,
-                () -> CachedValueProvider.Result.create(findForm(mixin.getVirtualFile()),
+    static List<VirtualFile> formsOf(PsiFile mixin) {
+        return CachedValuesManager.getCachedValue(mixin, FORMS_KEY,
+                () -> CachedValueProvider.Result.create(findForms(mixin.getVirtualFile()),
                         PsiModificationTracker.MODIFICATION_COUNT));
     }
 
     static List<Member> membersFor(PsiFile mixin) {
         return CachedValuesManager.getCachedValue(mixin, MEMBERS_KEY, () -> {
             VirtualFile mixinFile = mixin.getVirtualFile();
-            VirtualFile form = formOf(mixin);
-            if (mixinFile == null || form == null) {
+            List<VirtualFile> forms = formsOf(mixin);
+            if (mixinFile == null || forms.isEmpty()) {
                 return CachedValueProvider.Result.create(EMPTY, PsiModificationTracker.MODIFICATION_COUNT);
             }
             LinkedHashMap<String, Member> members = new LinkedHashMap<>();
-            Set<String> visited = new HashSet<>();
-            visited.add(mixinFile.getPath());
-            collect(form, visited, members);
+            for (VirtualFile form : forms) {
+                LinkedHashMap<String, Member> formMembers = new LinkedHashMap<>();
+                Set<String> visited = new HashSet<>();
+                visited.add(mixinFile.getPath());
+                collect(form, visited, formMembers);
+                for (Member member : formMembers.values()) {
+                    merge(members, member, form.getName());
+                }
+            }
             return CachedValueProvider.Result.create(List.copyOf(members.values()),
                     PsiModificationTracker.MODIFICATION_COUNT);
         });
@@ -84,7 +92,9 @@ final class MixinResolver {
         LinkedHashSet<VirtualFile> files = new LinkedHashSet<>();
         Set<String> seen = new HashSet<>();
         visitComponentFiles(current.getVirtualFile(), files, seen);
-        visitComponentFiles(formOf(current), files, seen);
+        for (VirtualFile form : formsOf(current)) {
+            visitComponentFiles(form, files, seen);
+        }
         return new ArrayList<>(files);
     }
 
@@ -136,23 +146,34 @@ final class MixinResolver {
         }
     }
 
-    private static @Nullable VirtualFile findForm(@Nullable VirtualFile mixin) {
+    private static List<VirtualFile> findForms(@Nullable VirtualFile mixin) {
         if (mixin == null || mixin.isDirectory() || !mixin.getName().endsWith(".js")) {
-            return null;
+            return List.of();
         }
+        LinkedHashSet<VirtualFile> forms = new LinkedHashSet<>();
         String[] lines = textOf(mixin).split("\n", -1);
-        for (int i = 0; i < Math.min(lines.length, 10); i++) {
+        for (int i = 0; i < Math.min(lines.length, 10) && forms.size() < MAX_FORMS; i++) {
             Matcher matcher = FORM.matcher(stripCr(lines[i]));
             if (!matcher.find()) {
                 continue;
             }
-            String target = matcher.group(1);
-            if (!target.startsWith("@") && !target.startsWith(".")) {
-                target = "./" + target;
+            for (String target : matcher.group(1).split("[,\\s]+")) {
+                if (target.isEmpty()) {
+                    continue;
+                }
+                if (!target.startsWith("@") && !target.startsWith(".")) {
+                    target = "./" + target;
+                }
+                VirtualFile form = resolve(mixin.getParent(), target);
+                if (form != null) {
+                    forms.add(form);
+                }
+                if (forms.size() >= MAX_FORMS) {
+                    break;
+                }
             }
-            return resolve(mixin.getParent(), target);
         }
-        return null;
+        return List.copyOf(forms);
     }
 
     static @Nullable VirtualFile resolve(@Nullable VirtualFile baseDir, @Nullable String spec) {
@@ -316,7 +337,23 @@ final class MixinResolver {
         if (name == null || name.isEmpty() || name.startsWith("_")) {
             return;
         }
-        out.putIfAbsent(name, new Member(name, kind, source));
+        out.putIfAbsent(name, new Member(name, kind, List.of(source), List.of()));
+    }
+
+    private static void merge(Map<String, Member> out, Member member, String form) {
+        Member existing = out.get(member.name());
+        if (existing == null) {
+            out.put(member.name(), new Member(member.name(), member.kind(), member.sources(), List.of(form)));
+            return;
+        }
+        out.put(member.name(), new Member(member.name(), existing.kind(),
+                union(existing.sources(), member.sources()), union(existing.forms(), List.of(form))));
+    }
+
+    private static List<String> union(List<String> first, List<String> second) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>(first);
+        merged.addAll(second);
+        return List.copyOf(merged);
     }
 
     static Map<String, String> imports(String[] lines) {

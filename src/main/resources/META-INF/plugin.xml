@@ -5,17 +5,19 @@
   <description><![CDATA[Vue Helper — plugin para Vue 2 + JavaScript: autocomplete e navegação para mixins, getInfo e @origem.
     Guia completo, com todos os casos, no README.md do projeto do plugin.
 
-    <p><b>1) // @form X.vue</b></p>
+    <p><b>1) // @form X.vue (até 3 forms)</b></p>
     <pre>
 // @form MyForm.vue
 export default {
   data: () =&gt; ({registros: []}),
   methods: {fechar() {}},
 };</pre>
-    <p>No mixin <code>.js</code>, <code>this.</code> lista os membros do mixin, do form e dos mixins dele,
-       com o arquivo de origem ao lado. Aceita <code>//@form</code>, <code>// @form</code> e
-       <code>/** @form */</code>; caminho solto, <code>./</code>, <code>../</code> e <code>@/</code>.
-       O próprio mixin não é duplicado (o WebStorm já mostra os membros dele).</p>
+    <p>No mixin <code>.js</code>, <code>this.</code> lista os membros do mixin, dos forms (até 3)
+       e dos mixins deles, com o(s) form(s) de origem ao lado. Aceita
+       <code>//@form</code>, <code>// @form</code> e <code>/** @form */</code>; um form por linha
+       ou separados por vírgula; caminho solto, <code>./</code>, <code>../</code> e <code>@/</code>.
+       Com mais de um form, o campo em comum mostra os dois forms e o campo de mixin compartilhado
+       mostra os forms e o arquivo. O próprio mixin não é duplicado (o WebStorm já mostra os membros dele).</p>
 
     <p><b>2) this.getInfo. e getters.info.</b></p>
     <pre>

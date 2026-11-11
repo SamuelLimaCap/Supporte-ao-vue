@@ -27,10 +27,13 @@ Build local: use **JDK 21**. O projeto compila contra o WebStorm 2024.2.6
 
 ## 1. `// @form X.vue`
 
-Um mixin usado por um único form declara o form nas primeiras 10 linhas:
+Um mixin pode declarar até **3 forms** nas primeiras 10 linhas, um por linha ou separados por
+vírgula:
 
 ```js
 // @form MyForm.vue
+// @form OtherForm.vue
+// ou: // @form MyForm.vue, OtherForm.vue
 // ou: //@form MyForm.vue
 // ou: /** @form MyForm.vue */
 export default {
@@ -46,10 +49,15 @@ export default {
 Com o mixin aberto, `this.` completa:
 
 - membros do próprio mixin que o WebStorm já conhece;
-- `props`, `data`, `computed` e `methods` do form;
-- membros dos mixins do form, recursivamente;
-- métodos aparecem com `()` e o arquivo de origem aparece ao lado
-  (`MyForm.vue`, `OtherMixin.js`, ...).
+- `props`, `data`, `computed` e `methods` dos forms;
+- membros dos mixins de cada form, recursivamente;
+- métodos aparecem com `()` e o(s) form(s) de origem aparece(m) ao lado
+  (`MyForm.vue`, `MyForm.vue, OtherForm.vue`, ...).
+
+Com mais de um form, os membros são unidos. Um campo presente nos dois forms aparece uma única
+vez com os dois forms ao lado (`MyForm.vue, OtherForm.vue`). Um campo vindo de um mixin
+compartilhado mostra os forms e o arquivo (`MyForm.vue, OtherForm.vue · SharedMixin.js`); se o
+mixin só for usado por um form, só esse form aparece.
 
 O mixin aberto não é duplicado pela lista do plugin: o WebStorm já mostra os membros dele.
 A resolução do caminho aceita:
@@ -64,7 +72,7 @@ A resolução do caminho aceita:
 A raiz é a pasta que tem `jsconfig.json` e `src/`.
 
 O `.vue` do form em si usa o autocomplete nativo do WebStorm; o `@form` serve para os
-mixins `.js`.
+mixins `.js`. Se o mixin for compartilhado, declare todos os forms nele (até 3).
 
 ---
 
@@ -307,7 +315,7 @@ Funciona em comentários de `.js` e `.vue` e também para caminhos no mesmo arqu
 
 ## 5. Herança
 
-O mapa de `@origem` é montado, nesta ordem, a partir do arquivo atual, do form do
+O mapa de `@origem` é montado, nesta ordem, a partir do arquivo atual, dos forms do
 `// @form` e dos mixins deles, recursivamente. O primeiro `@origem` encontrado para um
 nome vence.
 
@@ -344,4 +352,4 @@ Arquivos principais:
 - `OrigemResolver` — parser/resolvedor do `@origem`, estados de objeto/lista, `v-for`;
 - `OrigemGotoDeclarationHandler` — Ctrl+clique nos campos e na anotação;
 - `GetInfoFieldIndex` — índice dos campos de `getInfo`;
-- `MixinResolver` — resolução do form/mixins e membros.
+- `MixinResolver` — resolução dos forms/mixins e membros.
