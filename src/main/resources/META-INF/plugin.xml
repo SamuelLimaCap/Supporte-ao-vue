@@ -1,0 +1,101 @@
+<idea-plugin>
+  <id>io.github.samuellimacap.supporteaovue</id>
+  <name>Vue Helper</name>
+  <vendor>samuellimacap</vendor>
+  <description><![CDATA[Vue Helper — plugin para Vue 2 + JavaScript: autocomplete e navegação para mixins, getInfo e @origem.
+    Guia completo, com todos os casos, no README.md do projeto do plugin.
+
+    <p><b>1) // @form X.vue</b></p>
+    <pre>
+// @form MyForm.vue
+export default {
+  data: () =&gt; ({registros: []}),
+  methods: {fechar() {}},
+};</pre>
+    <p>No mixin <code>.js</code>, <code>this.</code> lista os membros do mixin, do form e dos mixins dele,
+       com o arquivo de origem ao lado. Aceita <code>//@form</code>, <code>// @form</code> e
+       <code>/** @form */</code>; caminho solto, <code>./</code>, <code>../</code> e <code>@/</code>.
+       O próprio mixin não é duplicado (o WebStorm já mostra os membros dele).</p>
+
+    <p><b>2) this.getInfo. e getters.info.</b></p>
+    <pre>
+this.getInfo.usuario;
+this.$store.getters.info.empresa;
+getters.info.nome;   // também no template: {{ getInfo.usuario }}</pre>
+    <p>Os campos vêm dos usos de <code>getInfo</code>/<code>getters.info</code> no projeto
+       (<code>src/</code>, sem <code>node_modules</code>). O campo <code>do</code> de URLs
+       <code>.../getInfo.do</code> é ignorado e chaves antigas sem arquivo não aparecem.</p>
+
+    <p><b>3) @origem</b></p>
+    <pre>
+props: {
+  /** @origem ../SomeMixin.js cadastro.configuracao */
+  configuracao: {type: Object, default: () =&gt; ({})},
+
+  /** @origem ../Factory.js criarParametros() */
+  parametros: {type: Object, default: () =&gt; ({})},
+
+  /** @origem ../Factory.js criarItem()[] */
+  itens: {type: Array, default: () =&gt; []},
+
+  /** @origem ./Obj.js default */
+  opcoes: {type: Object, default: () =&gt; ({})},
+
+  /** @origem ./Nested.js default.nivel1.nivel2 */
+  nested: {type: Object, default: () =&gt; ({})},
+
+  /** @origem ./Obj.js */
+  opcoesSemPath: {type: Object, default: () =&gt; ({})},
+
+  /** @origem criarLocal() */
+  local: {type: Object, default: () =&gt; ({})},
+}</pre>
+    <p>Sintaxe: <code>@origem &lt;arquivo&gt; &lt;caminho&gt;</code> ou <code>@origem &lt;caminho&gt;</code>.</p>
+    <ul>
+      <li><b>Arquivo:</b> nome solto (mesma pasta), <code>./</code>, <code>../</code>,
+          <code>@/</code>; sem extensão tenta <code>.js</code>, <code>/index.js</code>,
+          <code>.vue</code> e <code>/index.vue</code>. Sem arquivo (palavra sem <code>/</code> e
+          sem <code>.js</code>/<code>.vue</code>/<code>.ts</code>), usa o próprio arquivo.</li>
+      <li><b>Caminho:</b> <code>a.b.c</code> (data do export default; depois variável/função/import),
+          <code>criarX()</code> (objeto retornado), <code>default</code>, <code>default.a.b</code>,
+          omitido (nome do membro; se não achar, cai no export default quando ele não é um
+          componente) e <code>[]</code> para array de itens.</li>
+      <li><b>Valores seguidos:</b> parênteses, <code>defineComponent</code>/<code>Vue.extend</code>,
+          spread (<code>...criarBase()</code>), nomes, chamadas e imports.</li>
+    </ul>
+    <p><b>Arrays:</b> <code>this.itens.</code> sozinho fica com os métodos de array;
+       <code>this.itens[0].</code>, <code>at(0)</code> e callbacks
+       (<code>find</code>, <code>findLast</code>, <code>findIndex</code>, <code>filter</code>,
+       <code>forEach</code>, <code>map</code>, <code>flatMap</code>, <code>some</code>,
+       <code>every</code>) mostram os campos do item. <code>filter</code>/<code>slice</code>/
+       <code>sort</code>/<code>concat</code>/<code>reverse</code>/<code>splice</code> continuam
+       lista; um array literal <code>[{...}]</code> usa o primeiro item; array vazio não completa.</p>
+    <p><b>Onde completa:</b> <code>this.configuracao.</code> no script/.js,
+       <code>configuracao.</code> no template, campos aninhados, itens de array,
+       <code>const item = this.itens[0]</code>, <code>const item = this.itens.find(...)</code>,
+       <code>const cfg = this.configuracao</code>, <code>for (const item of this.itens)</code>,
+       <code>v-for="item in itens"</code>, <code>(item, i) in itens</code> e
+       <code>v-for="detalhe in item.detalhes"</code>. O índice do callback/<code>v-for</code> não
+       recebe os campos; parâmetro de método com o mesmo nome também não.</p>
+    <p><b>Ctrl+clique:</b> no campo completado vai para a chave no arquivo de origem. Na anotação
+       <code>@origem</code>, o arquivo abre o destino, o caminho vai para o data/variável/import,
+       <code>default</code> vai para o export default e <code>criarX()</code> vai para a função.</p>
+
+    <p><b>Compatibilidade:</b> WebStorm 2024.2 ou superior (build 242+), sem limite superior.
+       Verificado com 2024.2.6 (242.26775.11) e 2026.2.3 (262.10968.77). Requer os plugins
+       JavaScript e Vue (já incluídos no WebStorm).</p>
+    <p><b>Guia completo:</b> README.md do projeto do plugin (todos os exemplos, regras de sombra,
+       arrays, v-for, Ctrl+clique e limitações).</p>
+  ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>JavaScript</depends>
+  <depends>org.jetbrains.plugins.vue</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <completion.contributor language="JavaScript"
+        implementationClass="io.github.samuellimacap.supporteaovue.FormMixinCompletionContributor"/>
+    <fileBasedIndex implementation="io.github.samuellimacap.supporteaovue.GetInfoFieldIndex"/>
+    <gotoDeclarationHandler implementation="io.github.samuellimacap.supporteaovue.OrigemGotoDeclarationHandler"/>
+  </extensions>
+</idea-plugin>
